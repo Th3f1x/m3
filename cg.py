@@ -1,97 +1,63 @@
-import requests
-import sys
 import os
-from urllib.parse import urlparse
-from progress.bar import Bar
+import requests
+import subprocess
+from tqdm import tqdm
 
-def config():
-    argv = sys.argv
-    if len(argv) <= 1:
-        print('Usage: python3', argv[0], '[your_m3u8_url] [save_dir]')
-        return None
-    return (argv[1])
+def clear_console():
+    os.system('cls' if os.name == 'nt' else 'clear')
 
-def host(url):
-    urls = urlparse(url)
-    return urls.scheme + '://' + urls.hostname
+def dw_m3(url, output_path):
+    with requests.get(url, stream=True) as response, open(output_path, 'wb') as out_file:
+        total_size = int(response.headers.get('content-length', 0))
+        block_size = 1024
+        with tqdm(total=total_size, unit='B', unit_scale=True, desc='Downloading', leave=False) as pbar:
+            for data in response.iter_content(block_size):
+                pbar.update(len(data))
+                out_file.write(data)
 
-def m3u8(url):
-    print('m3u8 file:', url)
-    session = requests.Session()
-    adapter = requests.adapters.HTTPAdapter(pool_connections=10, pool_maxsize=10, max_retries=10)
-    session.mount('http://', adapter)
-    session.mount('https://',adapter)
-    x = session.get(url, timeout=10)
-    return r.text
+def download_and_convert_m3u8_to_mp4(m3u8_url, output_file):
+    response = requests.get(m3u8_url)
+    m3u8_content = response.text
 
-def list1(host, body):
-    lines = body.split('\n')
-    f_url_list = []
-    for line in lines:
-        if not line.startswith('#') and line != '':
-                if line.lower().startswith('http'):
-                    f_url_list.append(line)
-                else:
-                     f_url_list.append('%s/%s' % (host, line))
-
-    return f_url_list
-
-def dw_ts(f_url_list,dw_dir):
-    t_path = []
-    i = 0
-    for x_url in reversed(f_url_list):
-        i += 1
-        fl_name = x_url[x_url.rfind('/'):]
-        act_path = '%s%s' % (dw_dir, fl_name)
-        t_path.append(act_path)
-        if os.path.isfile(act_path):
-            print('File Exists')
-            continue
-        x = requests.get(x_url)
-     
-        with open(act_path, 'wb') as f:
-            f.write(x.content)
-    return t_path
-
-def chk_dir(path):
-    if os.path.exists(path):
-        return
-    os.makedirs(path)
-
-def get_dw_l(host,m3_url, url_list=[]):
-    body = m3u8(m3_url)
-    url_list = list1(host,body)
-    for url in url_list:
-        if url.lower().endwith('.m3u8'):
-            url_list = get_dw_l(host, url, url_list)
-        else:
-            url_list.append(url)
-    return url_list
-
-
-def dw_ts(m3_url,save):
-    check_dir(save)
-    host = get_host(m3_url)
-    f_url_list
+    segments = [line for line in m3u8_content.split('\n') if line and not line.startswith('#')]
     
-def download_ts(m3u8_url, save_dir):
-	check_dir(save_dir)
-	host = get_host(m3u8_url)
-	ts_url_list = get_download_url_list(host, m3u8_url)
-	print(ts_url_list)
-	print('total file count:', len(ts_url_list))
-	ts_path_list = download_ts_file(ts_url_list, save_dir)
+    segment_urls = [f"{m3u8_url.rsplit('/', 1)[0]}/{segment}" for segment in segments]
 
-def main():
-	save_dir = '/Users/huzhenjie/Downloads/m3u8_sample_dir'
-	m3u8_url = 'http://hls.cntv.lxdns.com/asp/hls/main/0303000a/3/default/978a64ddd3a1caa85ae70a23414e6540/main.m3u8'
-	download_ts(m3u8_url, save_dir)
+    progress_bar = tqdm(total=len(segment_urls), desc='Progresso do Download (☞ﾟヮﾟ)☞', unit='segment')
 
+    temp_files = []
 
-if __name__ == '__main__':
-	# main()
-	config = get_cfg()
-	if config:
-		download_ts(config[0], config[1])
+    clear_console()
+    for i, segment_url in enumerate(segment_urls):
+        temp_file = f"temp_segment_{i}.ts"
+        temp_files.append(temp_file)
 
+        dw_m3(segment_url, temp_file)
 
+        progress_bar.update(1)
+    progress_bar.close()
+
+    with open(output_file, 'wb') as output:
+        for temp_file in temp_files:
+            with open(temp_file, 'rb') as temp_input:
+                output.write(temp_input.read())
+
+    for temp_file in temp_files:
+        os.remove(temp_file)
+
+if __name__ == "__main__":
+    m3u8_url = input("Digite a URL do seu arquivo m3u8 aqui: ")
+    output_file = "video.mp4"
+
+    try:
+        download_and_convert_m3u8_to_mp4(m3u8_url, output_file)
+    except subprocess.CalledProcessError as e:
+        print("ffmpeg error. Return code:", e.returncode)
+        if e.stderr:
+            print("ffmpeg stderr:", e.stderr.decode())
+        else:
+            print("No stderr available.")
+    except Exception as e:
+        print("An unexpected error occurred:", str(e))
+
+print("DONE! (¬‿¬)")

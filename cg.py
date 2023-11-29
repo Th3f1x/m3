@@ -1,60 +1,56 @@
-from tqdm import tqdm
 import os
 import requests
-import ffmpeg
+import subprocess 
+from ffmpeg import input as ffmpeg_input
+from tqdm import tqdm
 
 def clear_console():
     os.system('cls' if os.name == 'nt' else 'clear')
 
-
-def dwl_m3u8(m3u8_url, output_file):
+def download_and_convert_m3u8_to_mp4(m3u8_url, output_file):
     response = requests.get(m3u8_url)
     m3u8_content = response.text
 
-    # Extract url in m3u8
+    
     segments = [line for line in m3u8_content.split('\n') if line and not line.startswith('#')]
 
-    # Create list url
+    # Create a list of complete URLs for the segments
     segment_urls = [f"{m3u8_url.rsplit('/', 1)[0]}/{segment}" for segment in segments]
 
-    # Download segments
-    temp_files = []
+    # Create a progress bar
+    progress_bar = tqdm(total=len(segment_urls), desc='Download Progress', unit='segment')
 
-    bar = tqdm(total=len(segment_urls), desc='Download Progress', unit='segment')
-    clear_console()
-    
-    for i,segment_url in enumerate(segment_urls):
+    # Download each segment and save it to a temporary file
+    temp_files = []
+    for i, segment_url in enumerate(segment_urls):
         temp_file = f"temp_segment_{i}.ts"
         temp_files.append(temp_file)
-        response = requests.get(segment_url,stream=True)
-
-        with open(temp_file, 'wb') as f :
+        response = requests.get(segment_url, stream=True)
+        with open(temp_file, 'wb') as f:
             for chunk in response.iter_content(chunk_size=1024):
-                    if chunk:
-                        f.write(chunk)
-        bar.update(1)
+                if chunk:
+                    f.write(chunk)
+        progress_bar.update(1)
         clear_console()
-    bar.close()
 
-    #ffmpeg for compact file in a mp4 file
-    input_args = []
-    for temp_file in temp_files:
-        input_args.extend(['-i', temp_file])
+    progress_bar.close()
 
-    (
-        ffmpeg
-        .input(*input_args, v=1, a=1)
-        .output(output_file)
-        .run()
-    )
-
-    for temp_file in temp_files:
-        os.remove(temp_file)
+    # Concatenate the downloaded segments into a single mp4 file using ffmpeg
+    input_files = "|".join(temp_files)
+    ffmpeg_cmd = f"ffmpeg -i 'concat:{input_files}' -c copy {output_file}"
+    
+    try:
+        # Use subprocess to run the ffmpeg command
+        subprocess.run(ffmpeg_cmd, shell=True, check=True)
+    except subprocess.CalledProcessError as e:
+        print("ffmpeg stderr:", e.stderr.decode())
+    finally:
+        # Remove the temporary files
+        for temp_file in temp_files:
+            os.remove(temp_file)
 
 if __name__ == "__main__":
-
-    m3u8_url = input("Put you m3u8 link here: ")
+    m3u8_url = input("Digite a URL do seu arquivo m3u8 aqui: ")
     output_file = "video.mp4"
 
-    dwl_m3u8(m3u8_url, output_file)
-
+    download_and_convert_m3u8_to_mp4(m3u8_url, output_file)

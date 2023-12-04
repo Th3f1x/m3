@@ -1,63 +1,15 @@
-import os
-import requests
 import subprocess
-from tqdm import tqdm
 
-def clear_console():
-    os.system('cls' if os.name == 'nt' else 'clear')
-
-def dw_m3(url, output_path):
-    with requests.get(url, stream=True) as response, open(output_path, 'wb') as out_file:
-        total_size = int(response.headers.get('content-length', 0))
-        block_size = 1024
-        with tqdm(total=total_size, unit='B', unit_scale=True, desc='Downloading', leave=False) as pbar:
-            for data in response.iter_content(block_size):
-                pbar.update(len(data))
-                out_file.write(data)
-
-def download_and_convert_m3u8_to_mp4(m3u8_url, output_file):
-    response = requests.get(m3u8_url)
-    m3u8_content = response.text
-
-    segments = [line for line in m3u8_content.split('\n') if line and not line.startswith('#')]
-    
-    segment_urls = [f"{m3u8_url.rsplit('/', 1)[0]}/{segment}" for segment in segments]
-
-    progress_bar = tqdm(total=len(segment_urls), desc='Progresso do Download (☞ﾟヮﾟ)☞', unit='segment')
-
-    temp_files = []
-
-    clear_console()
-    for i, segment_url in enumerate(segment_urls):
-        temp_file = f"temp_segment_{i}.ts"
-        temp_files.append(temp_file)
-
-        dw_m3(segment_url, temp_file)
-
-        progress_bar.update(1)
-    progress_bar.close()
-
-    with open(output_file, 'wb') as output:
-        for temp_file in temp_files:
-            with open(temp_file, 'rb') as temp_input:
-                output.write(temp_input.read())
-
-    for temp_file in temp_files:
-        os.remove(temp_file)
+def download_video_from_m3u8(m3u8_url, output_path):
+    try:
+        # Use ffmpeg to download the video
+        subprocess.run(['ffmpeg', '-i', m3u8_url, '-c', 'copy', output_path], check=True)
+        print(f'Vídeo baixado com sucesso em: {output_path}')
+    except subprocess.CalledProcessError as e:
+        print(f'Erro ao baixar o vídeo: {e}')
 
 if __name__ == "__main__":
-    m3u8_url = input("Digite a URL do seu arquivo m3u8 aqui: ")
-    output_file = "video.mp4"
+    m3u8_url = input('Insira a URL do arquivo m3u8: ')
+    output_path = input('Insira o caminho de saída do vídeo (ex: video.mp4): ')
 
-    try:
-        download_and_convert_m3u8_to_mp4(m3u8_url, output_file)
-    except subprocess.CalledProcessError as e:
-        print("ffmpeg error. Return code:", e.returncode)
-        if e.stderr:
-            print("ffmpeg stderr:", e.stderr.decode())
-        else:
-            print("No stderr available.")
-    except Exception as e:
-        print("An unexpected error occurred:", str(e))
-
-print("DONE! (¬‿¬)")
+    download_video_from_m3u8(m3u8_url, output_path)

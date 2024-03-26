@@ -15,7 +15,7 @@ def dw_m3(url, output_path):
                 pbar.update(len(data))
                 out_file.write(data)
 
-def download_and_convert_m3u8_to_mp4(m3u8_url, output_file):
+def conv(m3u8_url, output_file):
     response = requests.get(m3u8_url)
     m3u8_content = response.text
 
@@ -45,19 +45,25 @@ def download_and_convert_m3u8_to_mp4(m3u8_url, output_file):
     for temp_file in temp_files:
         os.remove(temp_file)
 
+def dw_mpeg(m3u8_url, output_file):
+    try:
+        subprocess.run(['ffmpeg', '-i', m3u8_url, '-c', 'copy', output_file], check=True)
+        print(f'Vídeo baixado em: {output_file}')
+    except subprocess.CalledProcessError as e:
+        print(f'Erro, descrição: {e}')
+    
+
+
 if __name__ == "__main__":
-    m3u8_url = input("Digite a URL do seu arquivo m3u8 aqui: ")
-    output_file = "video.mp4"
+
+    m3u8_url = input(f'Insira m3u8 url: ')
+    output_file = input(f'Insira o caminho e o nome do arquivo: ')
+
 
     try:
-        download_and_convert_m3u8_to_mp4(m3u8_url, output_file)
-    except subprocess.CalledProcessError as e:
-        print("ffmpeg error. Return code:", e.returncode)
-        if e.stderr:
-            print("ffmpeg stderr:", e.stderr.decode())
-        else:
-            print("No stderr available.")
-    except Exception as e:
-        print("An unexpected error occurred:", str(e))
+        clear_console()
+        dw_mpeg(m3u8_url, output_file)
+    except subprocess.CalledProcessError:
+        conv(m3u8_url, output_file)
 
 print("DONE! (¬‿¬)")

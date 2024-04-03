@@ -58,12 +58,29 @@ if __name__ == "__main__":
 
     m3u8_url = input(f'Insira m3u8 url: ')
     output_file = input(f'Insira o caminho e o nome do arquivo: ')
+    dw_opt = input(f'Utilizar metodo ffmpeg para download?(y/n)')
+
+    if dw_opt == 'y' or 'Y':
+        try:
+            dw_mpeg(m3u8_url,output_file)
+        except subprocess.CalledProcessError:
+            print('Este metodo falhou, trocando por um mais estável...')
+            conv(m3u8_url,output_file)
+
+    elif dw_opt == 'n' or 'N':
+        try:
+            conv(m3u8_url, output_file)
+        except subprocess.CalledProcessError:
+            print('Este metodo falhou, trocando para um mais estável...')
+            dw_mpeg(m3u8_url,output_file)
+
+    #try:
+    #   clear_console()
+    #   dw_mpeg(m3u8_url, output_file)
+    #except subprocess.CalledProcessError:
+    #   conv(m3u8_url, output_file)
 
 
-    try:
-        clear_console()
-        dw_mpeg(m3u8_url, output_file)
-    except subprocess.CalledProcessError:
-        conv(m3u8_url, output_file)
 
-print("DONE! (¬‿¬)")
+clear_console()
+print(f'Seu vídeo foi baixado em: {output_file}')
